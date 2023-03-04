@@ -1,0 +1,2 @@
+Template,NewVMName,NewVMFolder,NewVMCluster,NumCpu,CoresPerSocket,MemoryGB,NewVMNetwork,NewVMDataStore,NewVMIPv4,NewVMSubnet,NewVMGateway,NewVMDNS1,NewVMDNS2,NewVMUserName,NewVMPassword,NewVMDomain,NewVMDomainUserName,NewVMDomainPassword
+Wakanda_Windows_01,TestVM,testvms,Bifrost,2,2,6,VM Network,StarLord_Datastore01,192.168.34.90,24,192.168.34.1,192.168.34.11,192.168.34.12,Administrator,123456,vcloud-lab.com,vcloud-lab\vjanvi,123456
