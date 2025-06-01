@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Fixed DataTables - Excel File Viewer</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <style>
+
+    </style>
+</head>
+<body>
+
+    <div class="tab-container" id="fileTabButtons">
+        <!-- File tabs will be generated here -->
+    </div>
+
+    <div id="fileTabContents">
+        <p id="loadingMessage">Loading Excel data...</p>
+    </div>
+
+    <script>
+
+        if (typeof window !== 'undefined') { // Ensure we are in a browser-like environment
+        window.alert = function() {
+            console.warn("Alert suppressed:", arguments); // Log the alert message instead
+        };
+        window.confirm = function() {
+            console.warn("Confirm suppressed, returning true:", arguments);
+            return true;
+        };
+        window.prompt = function() {
+            console.warn("Prompt suppressed, returning null:", arguments);
+            return null;
+        };
+        }
+
+        // Define a palette of unique colors for the nested sheet tabs
+        const sheetTabColors = [
+            '#4CAF50', // Green
+            '#2196F3', // Blue
+            '#FF9800', // Orange
+            '#9C27B0', // Purple
+            '#F44336', // Red
+            '#607D8B', // Blue Grey
+            '#FFC107', // Amber
+            '#00BCD4', // Cyan
+            '#8BC34A', // Light Green
+            '#E91E63', // Pink
+            '#795548'  // Brown
+        ];
+
+        /**
+         * Generates a random hexadecimal color code, biased towards darker shades.
+         * @returns {string} - A random dark hex color string (e.g., '#RRGGBB').
+         */
+        function generateRandomDarkColor() {
+            // Generate random RGB components, limiting them to a darker range (e.g., 0-150)
+            const r = Math.floor(Math.random() * 151); // 0-150
+            const g = Math.floor(Math.random() * 151); // 0-150
+            const b = Math.floor(Math.random() * 151); // 0-150
+
+            // Convert to hex
+            const toHex = (c) => ('0' + c.toString(16)).slice(-2);
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        /**
+         * Generates a random linear gradient string using two random dark colors.
+         * @returns {string} - A CSS linear-gradient string.
+         */
+        function getRandomGradient() {
+            const color1 = generateRandomDarkColor();
+            const color2 = generateRandomDarkColor();
+            return `linear-gradient(to right, ${color1}, ${color2})`;
+        }
+
+        /**
+         * Sanitizes a string to be used as a valid HTML ID.
+         * Replaces non-alphanumeric characters with underscores.
+         * @param {string} name - The original string (e.g., sheet name, file name).
+         * @returns {string} - The sanitized string.
+         */
+        function sanitizeId(name) {
+            return name.replace(/[^a-zA-Z0-9-_]/g, '_');
+        }
+
+        /**
+         * Opens a specific tab within a given container.
+         * Hides all other tab contents and deactivates other tab buttons,
+         * resetting their colors.
+         *
+         * @param {string} tabContainerId - The ID of the div containing the tab buttons.
+         * @param {string} tabContentContainerId - The ID of the div containing the tab contents.
+         * @param {string} targetTabId - The ID of the tab content div to show.
+         */
+        function openTab(tabContainerId, tabContentContainerId, targetTabId) {
+            // Get all elements with class="tabcontent" within the specified content container and hide them
+            const tabcontent = document.getElementById(tabContentContainerId).getElementsByClassName("tabcontent");
+            for (let i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].classList.remove('active');
+            }
+
+            // Get all elements with class="tablink" within the specified button container and reset their styles
+            const tablinks = document.getElementById(tabContainerId).getElementsByClassName("tablink");
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].classList.remove('active');
+                // Reset background and color based on whether it's a file tab or sheet tab
+                if (tablinks[i].closest('#fileTabButtons')) { // Check if it's a file tab
+                    tablinks[i].style.background = '#f9f9f9'; // Reset to default background
+                    tablinks[i].style.color = '#333';
+                    tablinks[i].style.borderColor = 'transparent'; // Reset border color
+                } else { // It's a sheet tab
+                    tablinks[i].style.backgroundColor = '#e9ecef';
+                    tablinks[i].style.color = '#495057';
+                    tablinks[i].style.borderColor = 'transparent'; // Reset border color
+                }
+            }
+
+            // Show the specific tab content
+            const targetTabContent = document.getElementById(targetTabId);
+            if (targetTabContent) {
+                targetTabContent.classList.add('active');
+                
+                // Adjust DataTables columns when a tab becomes visible
+                setTimeout(() => {
+                    // Find all DataTables in the visible tab content
+                    const tables = targetTabContent.querySelectorAll('table.dataTable');
+                    tables.forEach(table => {
+                        if ($.fn.DataTable.isDataTable(table)) {
+                            const tableApi = $(table).DataTable();
+                            tableApi.columns.adjust();
+                        }
+                    });
+                }, 100);
+            }
+
+            // Add the "active" class to the button that opened the tab
+            // And apply its unique color/gradient using the data-targetId attribute
+            const clickedButton = Array.from(tablinks).find(button => button.dataset.targetId === targetTabId);
+
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+                const assignedValue = clickedButton.dataset.color; // This will be either a hex color or a gradient string
+
+                if (clickedButton.closest('#fileTabButtons')) {
+                    // For file tabs, apply the gradient to the background
+                    clickedButton.style.background = assignedValue;
+                    clickedButton.style.color = 'white'; // Ensure text is white on dark gradient
+                    // Extract the first color from the gradient string for the border
+                    const firstColorMatch = assignedValue.match(/#[0-9a-fA-F]{6}/);
+                    const borderColor = firstColorMatch ? darkenColor(firstColorMatch[0], 20) : 'transparent';
+                    clickedButton.style.borderColor = borderColor;
+                } else {
+                    // For sheet tabs, apply the single color to the background
+                    clickedButton.style.backgroundColor = assignedValue;
+                    clickedButton.style.color = 'white';
+                    clickedButton.style.borderColor = assignedValue; // Use the same color for the bottom border
+                    clickedButton.style.setProperty('--active-sheet-color', assignedValue);
+                    clickedButton.style.setProperty('--active-sheet-color-dark', darkenColor(assignedValue, 20));
+                }
+            }
+        }
+
+        /**
+         * Darkens a given hex color by a percentage.
+         * @param {string} hex - The hex color string (e.g., '#RRGGBB').
+         * @param {number} percent - The percentage to darken (e.g., 10 for 10%).
+         * @returns {string} - The darkened hex color string.
+         */
+        function darkenColor(hex, percent) {
+            let f = parseInt(hex.slice(1), 16),
+                t = percent < 0 ? 0 : 255,
+                p = percent < 0 ? percent * -1 : percent,
+                R = f >> 16,
+                G = (f >> 8) & 0x00ff,
+                B = f & 0x0000ff;
+            return (
+                "#" +
+                (
+                    0x1000000 +
+                    (Math.round((t - R) * p) + R) * 0x10000 +
+                    (Math.round((t - G) * p) + G) * 0x100 +
+                    (Math.round((t - B) * p) + B)
+                )
+                .toString(16)
+                .slice(1)
+            );
+        }
+
+        /**
+         * Loads sheets for a specific Excel file and initializes DataTables for each.
+         * Creates nested tabs for sheets.
+         *
+         * @param {string} filePath - The path to the Excel file.
+         * @param {string} fileId - The sanitized ID of the parent file tab.
+         * @param {HTMLElement} sheetTabButtonsContainer - The container for sheet tab buttons.
+         * @param {HTMLElement} sheetTabContentsContainer - The container for sheet tab contents.
+         */
+        async function loadSheetsForFile(filePath, fileId, sheetTabButtonsContainer, sheetTabContentsContainer) {
+            try {
+                // Show loading indicator
+                sheetTabContentsContainer.innerHTML = '<div class="spinner"></div>';
+                
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status} - Could not load sheets for ${filePath}.`);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer);
+                const sheetNames = workbook.SheetNames;
+
+                // Clear previous sheet tabs if any (for re-loading scenarios)
+                sheetTabButtonsContainer.innerHTML = '';
+                sheetTabContentsContainer.innerHTML = '';
+
+                if (sheetNames.length === 0) {
+                    sheetTabContentsContainer.innerHTML = `<p>No sheets found in ${filePath}.</p>`;
+                    return;
+                }
+
+                sheetNames.forEach((sheetName, index) => {
+                    const safeSheetId = `${fileId}_${sanitizeId(sheetName)}`; // Unique ID for sheet tab content
+                    const assignedColor = sheetTabColors[index % sheetTabColors.length]; // Cycle sheet colors
+
+                    // Create Sheet Tab Button
+                    const sheetTabButton = document.createElement('button');
+                    sheetTabButton.classList.add('tablink');
+                    sheetTabButton.textContent = sheetName;
+                    sheetTabButton.dataset.color = assignedColor; // Store unique color
+                    sheetTabButton.dataset.targetId = safeSheetId; // Store the target ID for easy lookup
+                    sheetTabButton.addEventListener('click', () => openTab(
+                        `sheetTabButtons-${fileId}`, // Container ID for sheet buttons
+                        `sheetTabContents-${fileId}`, // Container ID for sheet contents
+                        safeSheetId
+                    ));
+                    sheetTabButtonsContainer.appendChild(sheetTabButton);
+
+                    // Create Sheet Tab Content Div
+                    const sheetTabContent = document.createElement('div');
+                    sheetTabContent.id = safeSheetId;
+                    sheetTabContent.classList.add('tabcontent', 'sheet-tabcontent'); // Add specific class for sheet content
+
+                    const sheetHeading = document.createElement('h4'); // Use h4 for nested heading
+                    sheetHeading.textContent = `Data from Sheet: ${sheetName}`;
+                    sheetTabContent.appendChild(sheetHeading);
+
+                    // Create wrapper for the table
+                    const tableWrapper = document.createElement('div');
+                    tableWrapper.className = 'table-responsive-wrapper';
+                    
+                    const table = document.createElement('table');
+                    table.id = `table-${safeSheetId}`; // Unique ID for each sheet's table
+                    table.classList.add('display');
+                    table.style.width = '100%'; // Ensure table takes full width
+                    
+                    tableWrapper.appendChild(table);
+                    sheetTabContent.appendChild(tableWrapper);
+                    sheetTabContentsContainer.appendChild(sheetTabContent);
+
+                    // Process Sheet Data and Initialize DataTable
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (json.length > 0) {
+                        const headers = json[0];
+                        const dataRows = json.slice(1);
+                        const data = dataRows.map(row => row.map(cell => cell === undefined ? '' : cell));
+                        // Filter out rows that have fewer columns than the headers
+                        // const data = dataRows
+                        // .filter(row => row.length === headers.length) // 🧹 Keep only rows matching header length
+                        // .map(row => {
+                        //     // Ensure all rows are padded to the same length
+                        //     while (row.length < headers.length) row.push('');
+                        //     return row.map(cell => cell === undefined ? '' : cell);
+                        // });
+
+                        // if (data.length === 0) {
+                        //     sheetTabContent.innerHTML += '<p>This sheet has no usable data.</p>';
+                        // }                            
+
+                        setTimeout(() => {
+                            // Destroy existing DataTable instance if it exists to prevent reinitialization errors
+                            if ($.fn.DataTable.isDataTable(`#table-${safeSheetId}`)) {
+                                $(`#table-${safeSheetId}`).DataTable().destroy();
+                                $(`#table-${safeSheetId}`).empty(); // Clear table content
+                            }
+                            
+                            // Initialize DataTable with responsive settings
+                            const dataTable = $(`#table-${safeSheetId}`).DataTable({
+                                data: data,
+                                columns: headers.map(header => ({ 
+                                    title: header === undefined ? '' : header,
+                                    width: 'auto' // Let DataTables calculate width
+                                })),
+                                paging: true,
+                                pageLength: 10,
+                                lengthMenu: [5, 10, 25, 50],
+                                ordering: true,
+                                searching: true,
+                                responsive: true,
+                                autoWidth: true,
+                                scrollX: true,
+                                scrollCollapse: true
+                            });
+                            
+                            // Adjust column widths after initialization
+                            setTimeout(() => {
+                                dataTable.columns.adjust().draw();
+                            }, 100);
+                        }, 0);
+                    } else {
+                        sheetTabContent.innerHTML += '<p>No data found in this sheet.</p>';
+                    }
+
+                    // Activate the first sheet tab for this file
+                    if (index === 0) {
+                        sheetTabButton.classList.add('active');
+                        sheetTabButton.style.backgroundColor = assignedColor;
+                        sheetTabButton.style.color = 'white';
+                        sheetTabButton.style.borderColor = assignedColor; // Apply border color
+                        sheetTabButton.style.setProperty('--active-sheet-color', assignedColor);
+                        sheetTabButton.style.setProperty('--active-sheet-color-dark', darkenColor(assignedColor, 20));
+                        sheetTabContent.classList.add('active');
+                    }
+                });
+            } catch (error) {
+                sheetTabContentsContainer.innerHTML = `<p style="color: red;">Error loading sheets for ${filePath}: ${error.message}</p>`;
+                console.error(`Error loading sheets for ${filePath}:`, error);
+            }
+        }
+
+        /**
+         * Removes the extension from a filename.
+         * @param {string} filename - The original filename.
+         * @returns {string} - Filename without extension.
+         */
+        function removeExtension(filename) {
+            return filename.replace(/\.[^/.]+$/, "");
+        }        
+
+        /**
+         * Main function to load the list of Excel files and create top-level tabs.
+         */
+        async function loadAllExcelFiles() {
+            // Hide loading message initially
+            document.getElementById('loadingMessage').style.display = 'none';
+
+            const fileTabButtonsContainer = document.getElementById('fileTabButtons');
+            const fileTabContentsContainer = document.getElementById('fileTabContents');
+
+            let excelFiles = [];
+            try {
+                // Fetch the list of Excel files from files.json
+                const response = await fetch('excel/files.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status} - Could not load file list from excel/files.json.`);
+                }
+                const fileNames = await response.json();
+                excelFiles = fileNames.map(name => `excel/${name}`); // Prepend directory path
+            } catch (error) {
+                fileTabContentsContainer.innerHTML = `<p style="color: red;">Error fetching Excel file list: ${error.message}</p>`;
+                console.error("Error fetching Excel file list:", error);
+                return; // Stop execution if file list cannot be loaded
+            }
+
+            if (excelFiles.length === 0) {
+                fileTabContentsContainer.innerHTML = '<p>No Excel files found in the list.</p>';
+                return;
+            }
+
+            let firstFileLoaded = false;
+
+            for (let i = 0; i < excelFiles.length; i++) {
+                const filePath = excelFiles[i];
+                const fileNameWithExtension = filePath.split('/').pop(); // Get just the file name with extension
+                const fileNameWithoutExtension = removeExtension(fileNameWithExtension); // Remove extension using helper
+                const safeFileId = `file_${sanitizeId(fileNameWithoutExtension)}`; // Unique ID for file tab content
+
+                // Get a random gradient for this file tab
+                const assignedGradient = getRandomGradient();
+
+                // 1. Create File Tab Button
+                const fileTabButton = document.createElement('button');
+                fileTabButton.classList.add('tablink');
+                fileTabButton.textContent = fileNameWithoutExtension; // Display file name without extension
+                fileTabButton.dataset.color = assignedGradient; // Store the gradient string
+                fileTabButton.dataset.targetId = safeFileId; // Store the target ID for easy lookup
+                fileTabButton.addEventListener('click', () => {
+                    openTab('fileTabButtons', 'fileTabContents', safeFileId);
+                    // Ensure sheets are loaded/visible for the newly active file tab
+                    const sheetTabButtonsContainer = document.getElementById(`sheetTabButtons-${safeFileId}`);
+                    const sheetTabContentsContainer = document.getElementById(`sheetTabContents-${safeFileId}`);
+                    // Only load sheets if they haven't been loaded yet for this file
+                    if (sheetTabButtonsContainer.children.length === 0 && sheetTabContentsContainer.children.length === 0) {
+                        loadSheetsForFile(filePath, safeFileId, sheetTabButtonsContainer, sheetTabContentsContainer);
+                    } else {
+                        // If sheets are already loaded, just activate the first one
+                        if (sheetTabButtonsContainer.children.length > 0) {
+                            // Simulate a click on the first sheet tab button
+                            sheetTabButtonsContainer.children[0].click();
+                        }
+                    }
+                });
+                fileTabButtonsContainer.appendChild(fileTabButton);
+                                
+                // 2. Create File Tab Content Div
+                const fileTabContent = document.createElement('div');
+                fileTabContent.id = safeFileId;
+                fileTabContent.classList.add('tabcontent');
+
+                const fileHeading = document.createElement('h3');
+                fileHeading.textContent = `Content for: ${fileNameWithoutExtension}`; // Display file name without extension
+                fileTabContent.appendChild(fileHeading);
+
+                // Create containers for nested sheet tabs within this file's content
+                const sheetTabButtonsContainer = document.createElement('div');
+                sheetTabButtonsContainer.id = `sheetTabButtons-${safeFileId}`;
+                sheetTabButtonsContainer.classList.add('tab-container', 'sheet-tab-container'); // Add specific class for sheet tabs
+                fileTabContent.appendChild(sheetTabButtonsContainer);
+
+                const sheetTabContentsContainer = document.createElement('div');
+                sheetTabContentsContainer.id = `sheetTabContents-${safeFileId}`;
+                fileTabContent.appendChild(sheetTabContentsContainer);
+
+                fileTabContentsContainer.appendChild(fileTabContent);
+
+                // Load sheets for the first file immediately
+                if (i === 0) {
+                    fileTabButton.classList.add('active');
+                    fileTabButton.style.background = assignedGradient; // Apply gradient
+                    fileTabButton.style.color = 'white';
+                    // Extract the first color from the gradient string for the border
+                    const firstColorMatch = assignedGradient.match(/#[0-9a-fA-F]{6}/);
+                    const borderColor = firstColorMatch ? darkenColor(firstColorMatch[0], 20) : 'transparent';
+                    fileTabButton.style.borderColor = borderColor;
+                    fileTabContent.classList.add('active');
+                    await loadSheetsForFile(filePath, safeFileId, sheetTabButtonsContainer, sheetTabContentsContainer);
+                    firstFileLoaded = true;
+                }
+            }
+
+            if (!firstFileLoaded && excelFiles.length > 0) {
+                // Fallback to activate the first file if somehow not activated
+                fileTabButtonsContainer.children[0].click();
+            }
+        }
+
+        // Automatically load all Excel files and set up tabs/tables when the window loads
+        window.onload = loadAllExcelFiles;
+    </script>
+</body>
+</html>

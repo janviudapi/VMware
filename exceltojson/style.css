@@ -1,0 +1,177 @@
+body {
+    font-family: "Lato", sans-serif;
+    padding: 20px;
+    background-color: #f0f2f5;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* General tab container styling */
+.tab-container {
+    overflow: hidden;
+    border: 1px solid #ddd;
+    background-color: #ffffff;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-wrap: wrap;
+}
+
+/* Styling for tab buttons (both file and sheet tabs) */
+.tablink {
+    background-color: #f9f9f9;
+    color: #333;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 20px;
+    font-size: 16px;
+    transition: background-color 0.3s, color 0.3s;
+    flex-grow: 1;
+    text-align: center;
+    border-right: 1px solid #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.tablink:last-child {
+    border-right: none;
+}
+
+.tablink:hover {
+    background-color: #e0e0e0;
+}
+
+/* Styling for the active tab button */
+.tablink.active {
+    color: white;
+    border-bottom: 3px solid;
+}
+
+/* Styling for tab content areas */
+.tabcontent {
+    display: none;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-top: none;
+    background-color: #ffffff;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    overflow-x: auto;
+}
+
+/* Styling for the active tab content */
+.tabcontent.active {
+    display: block;
+}
+
+/* Specific styling for nested sheet tabs */
+.sheet-tab-container {
+    margin-top: 20px;
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+}
+
+.sheet-tab-container .tablink {
+    font-size: 14px;
+    padding: 10px 15px;
+    background-color: #e9ecef;
+    color: #495057;
+    border-bottom: none;
+    max-width: 150px;
+}
+
+.sheet-tab-container .tablink:hover {
+    background-color: #dee2e6;
+}
+
+.sheet-tab-container .tablink.active {
+    background-color: var(--active-sheet-color, #6c757d);
+    color: white;
+    border-bottom: 2px solid var(--active-sheet-color-dark, #545b62);
+}
+
+.sheet-tabcontent {
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    margin-top: 10px;
+    overflow-x: auto;
+}
+
+/* Table wrapper for better control */
+.table-responsive-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 15px;
+    background-color: #fafafa;
+}
+
+/* DataTables fixes */
+.dataTables_wrapper {
+    width: 100% !important;
+    overflow-x: auto;
+}
+
+.dataTables_wrapper .dataTables_scroll {
+    min-height: 60px;
+}
+
+.dataTables_wrapper .dataTables_scrollBody {
+    min-height: 0 !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    margin-left: 0.5em;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin: 0 2px;
+    background-color: #f9f9f9;
+    cursor: pointer;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+    background-color: #007bff;
+    color: white !important;
+    border-color: #007bff;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background-color: #e0e0e0;
+}
+
+/* Loading spinner */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #3498db;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
